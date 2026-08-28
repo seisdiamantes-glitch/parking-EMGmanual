@@ -15,6 +15,7 @@
 """
 import argparse
 import csv
+import datetime
 import html
 import re
 import sys
@@ -23,18 +24,26 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TEMPLATE = REPO_ROOT / "meeting_agenda_template.html"
 
-REQUIRED_INFO_KEYS = ["年", "月", "日時", "場所", "議長", "記録係", "出席者"]
-AGENDA_COLUMNS = ["No", "議題", "担当", "時間"]
+REQUIRED_INFO_KEYS = ["年", "月", "日", "時間帯", "場所", "議長", "記録係", "出席者"]
+OPTIONAL_INFO_KEYS = ["欠席者", "件名"]
+
+# 議題シートの列名。「説明・論点」「資料/備考」は空欄可。
+AGENDA_REQUIRED_COLUMNS = ["No", "議題", "担当", "想定時間（分）"]
+AGENDA_OPTIONAL_COLUMNS = ["説明・論点", "資料/備考"]
+AGENDA_COLUMNS = AGENDA_REQUIRED_COLUMNS + AGENDA_OPTIONAL_COLUMNS
+
+WEEKDAY_JA = ["月", "火", "水", "木", "金", "土", "日"]
 
 ROW_TEMPLATE = """        <tr>
           <td align="center" style="font-size:13px; color:#1a1a1a; padding:12px 6px;{border}">{no}</td>
           <td style="font-size:13px; color:#1a1a1a; padding:12px 10px;{border}">
-            {topic}
+            {topic}{sub_lines}
           </td>
           <td style="font-size:13px; color:#1a1a1a; padding:12px 10px;{border}">{owner}</td>
-          <td align="center" style="font-size:13px; color:#1a1a1a; padding:12px 6px;{border}">{minutes}</td>
+          <td align="center" style="font-size:13px; color:#1a1a1a; padding:12px 6px;{border}">{minutes}分</td>
         </tr>"""
 ROW_BORDER = " border-bottom:1px solid #eef0f2;"
+SUB_LINE = '<br><span style="font-size:11px; color:#8a92a0; line-height:1.5;">{label}{text}</span>'
 
 
 def read_info_csv(path):
@@ -59,6 +68,15 @@ def read_items_csv(path):
     return items
 
 
+def cell_to_str(value):
+    """Excelセルの値を文字列化する。整数値扱いの小数（5.0など）は末尾の.0を除く。"""
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
 def read_workbook(path):
     try:
         import openpyxl
@@ -78,18 +96,17 @@ def read_workbook(path):
         if not row or row[0] is None:
             continue
         key, value = row[0], row[1] if len(row) > 1 else None
-        info[str(key).strip()] = "" if value is None else str(value).strip()
+        info[cell_to_str(key)] = cell_to_str(value)
 
     items_ws = wb["議題"]
     rows_iter = items_ws.iter_rows(min_row=1, max_row=1, values_only=True)
-    header = [str(c).strip() if c is not None else "" for c in next(rows_iter)]
+    header = [cell_to_str(c) for c in next(rows_iter)]
     items = []
     for row in items_ws.iter_rows(min_row=2, values_only=True):
         if not row or all(v is None for v in row):
             continue
         record = {
-            header[i]: ("" if row[i] is None else str(row[i]).strip())
-            for i in range(min(len(header), len(row)))
+            header[i]: cell_to_str(row[i]) for i in range(min(len(header), len(row)))
         }
         if not any(record.get(k) for k in AGENDA_COLUMNS):
             continue
@@ -101,6 +118,16 @@ def validate_info(info):
     missing = [k for k in REQUIRED_INFO_KEYS if not info.get(k)]
     if missing:
         sys.exit(f"会議情報に不足があります: {', '.join(missing)}")
+
+
+def format_datetime(info):
+    try:
+        year, month, day = int(info["年"]), int(info["月"]), int(info["日"])
+        d = datetime.date(year, month, day)
+    except (KeyError, ValueError, TypeError):
+        sys.exit(f"「年」「月」「日」の値が正しくありません（年={info.get('年')!r} 月={info.get('月')!r} 日={info.get('日')!r}）。")
+    weekday = WEEKDAY_JA[d.weekday()]
+    return f"{year}年{month}月{day}日（{weekday}）　{info['時間帯']}"
 
 
 def replace_field(text, key, value):
@@ -126,12 +153,29 @@ def build_agenda_rows(items):
     rows = []
     last = len(items) - 1
     for i, item in enumerate(items):
+        missing = [k for k in AGENDA_REQUIRED_COLUMNS if not item.get(k)]
+        if missing:
+            sys.exit(f"議題の{i + 1}行目に不足があります: {', '.join(missing)}")
+
+        sub_lines = ""
+        note = (item.get("説明・論点") or "").strip()
+        if note:
+            sub_lines += SUB_LINE.format(label="", text=html.escape(note))
+        material = (item.get("資料/備考") or "").strip()
+        if material:
+            sub_lines += SUB_LINE.format(label="資料/備考：", text=html.escape(material))
+
+        minutes = str(item.get("想定時間（分）", "")).strip()
+        if minutes.endswith("分"):
+            minutes = minutes[:-1]
+
         rows.append(
             ROW_TEMPLATE.format(
                 no=html.escape(item.get("No", "")),
                 topic=html.escape(item.get("議題", "")),
+                sub_lines=sub_lines,
                 owner=html.escape(item.get("担当", "")),
-                minutes=html.escape(item.get("時間", "")),
+                minutes=html.escape(minutes),
                 border="" if i == last else ROW_BORDER,
             )
         )
@@ -164,11 +208,12 @@ def main():
         sys.exit(f"テンプレートが見つかりません: {args.template}")
     text = args.template.read_text(encoding="utf-8")
     text = replace_field(text, "TITLE", title)
-    text = replace_field(text, "DATETIME", info["日時"])
+    text = replace_field(text, "DATETIME", format_datetime(info))
     text = replace_field(text, "PLACE", info["場所"])
     text = replace_field(text, "CHAIR", info["議長"])
     text = replace_field(text, "RECORDER", info["記録係"])
     text = replace_field(text, "ATTENDEES", info["出席者"])
+    text = replace_field(text, "ABSENTEES", info.get("欠席者") or "なし")
     text = replace_rows(text, "ROWS:AGENDA", build_agenda_rows(items))
 
     output = args.output
