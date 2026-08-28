@@ -22,7 +22,7 @@ import sys
 import unicodedata
 from pathlib import Path
 
-SCRIPT_VERSION = "2026-08-28d"
+SCRIPT_VERSION = "2026-08-28e"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TEMPLATE = REPO_ROOT / "meeting_agenda_template.html"
@@ -311,7 +311,8 @@ def main():
 
     output = args.output
     if output is None:
-        output = REPO_ROOT / "output" / f"agenda_{info['年']}-{str(month).zfill(2)}.html"
+        date_prefix = f"{info['年']}{str(month).zfill(2)}{str(day).zfill(2)}"
+        output = REPO_ROOT / "output" / f"{date_prefix}_meeting_agenda.html"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(text, encoding="utf-8")
     print(f"生成しました: {output}")

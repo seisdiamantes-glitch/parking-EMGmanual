@@ -73,7 +73,13 @@ Googleスプレッドシートを使っている場合は「ファイル → ダ
 
 ## 出力
 
-デフォルトでは `output/agenda_<年>-<月>.html` に生成される（`--output` で変更可）。
+デフォルトでは `output/<YYYYMMDD>_meeting_agenda.html`（例：`output/20260828_meeting_agenda.html`）に
+生成される。開催日（会議情報シートの年・月日）から自動的に決まるので、月に複数回開催しても
+ファイルが上書きされることはない。保存先を変えたい場合は `--output` で指定する。
+
+```bash
+python3 scripts/generate_agenda_email.py --workbook meeting_data.xlsx --output どこか別の場所\my_agenda.html
+```
 
 1. 生成されたHTMLファイルをブラウザ（Chrome等）で開く
 2. ページ全体を選択（Ctrl+A）してコピー（Ctrl+C）
