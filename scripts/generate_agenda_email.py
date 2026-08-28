@@ -24,8 +24,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TEMPLATE = REPO_ROOT / "meeting_agenda_template.html"
 
-REQUIRED_INFO_KEYS = ["年", "月", "日", "時間帯", "場所", "議長", "記録係", "出席者"]
+REQUIRED_INFO_KEYS = ["年", "月日", "時間帯", "場所", "議長", "記録係", "出席者"]
 OPTIONAL_INFO_KEYS = ["欠席者", "件名"]
+MONTH_DAY_ALIASES = ["月日", "月/日"]
 
 # 議題シートの列名。「説明・論点」「資料/備考」は空欄可。
 AGENDA_REQUIRED_COLUMNS = ["No", "議題", "担当", "想定時間（分）"]
@@ -114,18 +115,41 @@ def read_workbook(path):
     return info, items
 
 
+def normalize_info_keys(info):
+    """「月/日」のように別名で入力された項目名を正規のキーへ寄せる。"""
+    if "月日" not in info:
+        for alias in MONTH_DAY_ALIASES:
+            if alias in info:
+                info["月日"] = info[alias]
+                break
+    return info
+
+
 def validate_info(info):
     missing = [k for k in REQUIRED_INFO_KEYS if not info.get(k)]
     if missing:
         sys.exit(f"会議情報に不足があります: {', '.join(missing)}")
 
 
-def format_datetime(info):
+def parse_month_day(value):
+    """「9/10」のような「月/日」形式の文字列から (月, 日) を取り出す。"""
+    text = str(value).strip()
+    for sep in ("/", "-"):
+        if sep in text:
+            month_str, _, day_str = text.partition(sep)
+            try:
+                return int(month_str), int(day_str)
+            except ValueError:
+                break
+    sys.exit(f"「月日」の値が正しくありません: {value!r}。「9/10」のように「月/日」の形式で入力してください。")
+
+
+def format_datetime(info, month, day):
     try:
-        year, month, day = int(info["年"]), int(info["月"]), int(info["日"])
+        year = int(info["年"])
         d = datetime.date(year, month, day)
     except (KeyError, ValueError, TypeError):
-        sys.exit(f"「年」「月」「日」の値が正しくありません（年={info.get('年')!r} 月={info.get('月')!r} 日={info.get('日')!r}）。")
+        sys.exit(f"「年」の値が正しくありません（年={info.get('年')!r}）。")
     weekday = WEEKDAY_JA[d.weekday()]
     return f"{year}年{month}月{day}日（{weekday}）　{info['時間帯']}"
 
@@ -200,15 +224,17 @@ def main():
     else:
         parser.error("--workbook か、--info と --items の組み合わせのいずれかを指定してください。")
 
+    info = normalize_info_keys(info)
     validate_info(info)
+    month, day = parse_month_day(info["月日"])
 
-    title = info.get("件名") or f"【{info['年']}年{info['月']}月度】定例会議"
+    title = info.get("件名") or f"【{info['年']}年{month}月度】定例会議"
 
     if not args.template.exists():
         sys.exit(f"テンプレートが見つかりません: {args.template}")
     text = args.template.read_text(encoding="utf-8")
     text = replace_field(text, "TITLE", title)
-    text = replace_field(text, "DATETIME", format_datetime(info))
+    text = replace_field(text, "DATETIME", format_datetime(info, month, day))
     text = replace_field(text, "PLACE", info["場所"])
     text = replace_field(text, "CHAIR", info["議長"])
     text = replace_field(text, "RECORDER", info["記録係"])
@@ -218,9 +244,7 @@ def main():
 
     output = args.output
     if output is None:
-        year = info["年"]
-        month = str(info["月"]).zfill(2)
-        output = REPO_ROOT / "output" / f"agenda_{year}-{month}.html"
+        output = REPO_ROOT / "output" / f"agenda_{info['年']}-{str(month).zfill(2)}.html"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(text, encoding="utf-8")
     print(f"生成しました: {output}")
