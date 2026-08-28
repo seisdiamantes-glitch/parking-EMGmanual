@@ -21,7 +21,7 @@ import re
 import sys
 from pathlib import Path
 
-SCRIPT_VERSION = "2026-08-28"
+SCRIPT_VERSION = "2026-08-28b"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TEMPLATE = REPO_ROOT / "meeting_agenda_template.html"
@@ -158,7 +158,11 @@ def normalize_info_keys(info):
 def validate_info(info):
     missing = [k for k in REQUIRED_INFO_KEYS if not info.get(k)]
     if missing:
-        sys.exit(f"会議情報に不足があります: {', '.join(missing)}")
+        found = ", ".join(repr(k) for k in info.keys()) or "(1件も読み取れませんでした)"
+        sys.exit(
+            f"会議情報に不足があります: {', '.join(missing)}\n"
+            f"読み取れた項目名: {found}"
+        )
 
 
 def parse_month_day(value):
