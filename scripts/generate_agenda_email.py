@@ -19,9 +19,10 @@ import datetime
 import html
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
-SCRIPT_VERSION = "2026-08-28c"
+SCRIPT_VERSION = "2026-08-28d"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TEMPLATE = REPO_ROOT / "meeting_agenda_template.html"
@@ -61,14 +62,39 @@ def read_info_csv(path):
     return info
 
 
+def normalize_column(text):
+    """列見出しの全角/半角括弧・空白の違いを吸収して比較できる形にする。"""
+    text = unicodedata.normalize("NFKC", str(text)).strip()
+    for ch in "（）() 　":
+        text = text.replace(ch, "")
+    return text
+
+
+_AGENDA_COLUMN_LOOKUP = {normalize_column(c): c for c in AGENDA_COLUMNS}
+
+
+def map_agenda_record(raw):
+    """{見出しテキスト: 値} を正規の列名（AGENDA_COLUMNS）にマッピングする。"""
+    mapped = {}
+    for key, value in raw.items():
+        canonical = _AGENDA_COLUMN_LOOKUP.get(normalize_column(key))
+        if canonical:
+            mapped[canonical] = value
+    return {
+        k: (str(mapped[k]).strip() if mapped.get(k) is not None else "")
+        for k in AGENDA_COLUMNS
+    }
+
+
 def read_items_csv(path):
     items = []
     with open(path, encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            if not any((row.get(k) or "").strip() for k in AGENDA_COLUMNS):
+            record = map_agenda_record(row)
+            if not any(record.get(k) for k in AGENDA_COLUMNS):
                 continue
-            items.append({k: (row.get(k) or "").strip() for k in AGENDA_COLUMNS})
+            items.append(record)
     return items
 
 
@@ -116,7 +142,7 @@ def read_workbook(path):
     for row_num, row in enumerate(
         items_ws.iter_rows(min_row=1, max_row=scan_limit, values_only=True), start=1
     ):
-        if row and cell_to_str(row[0]) == "No":
+        if row and unicodedata.normalize("NFKC", cell_to_str(row[0])).strip().lower() == "no":
             header = [cell_to_str(c) for c in row]
             header_row_index = row_num
             break
@@ -129,12 +155,13 @@ def read_workbook(path):
     for row in items_ws.iter_rows(min_row=header_row_index + 1, values_only=True):
         if not row or all(v is None for v in row):
             continue
-        record = {
+        raw = {
             header[i]: cell_to_str(row[i]) for i in range(min(len(header), len(row)))
         }
+        record = map_agenda_record(raw)
         if not any(record.get(k) for k in AGENDA_COLUMNS):
             continue
-        items.append({k: record.get(k, "") for k in AGENDA_COLUMNS})
+        items.append(record)
     return info, items
 
 
