@@ -21,7 +21,7 @@ import re
 import sys
 from pathlib import Path
 
-SCRIPT_VERSION = "2026-08-28b"
+SCRIPT_VERSION = "2026-08-28c"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TEMPLATE = REPO_ROOT / "meeting_agenda_template.html"
@@ -145,13 +145,15 @@ def strip_separators(text):
 
 
 def normalize_info_keys(info):
-    """「月/日」「月ノ日」のように区切り文字だけ違う項目名を「月日」に寄せる。"""
+    """「月/日」「月ノ日」「月」のように書き方が違う項目名を「月日」に寄せる。"""
     if "月日" in info:
         return info
     for key in info:
         if strip_separators(key) == "月日":
             info["月日"] = info[key]
-            break
+            return info
+    if "月" in info:
+        info["月日"] = info["月"]
     return info
 
 
@@ -165,17 +167,19 @@ def validate_info(info):
         )
 
 
+MONTH_DAY_VALUE_RE = re.compile(r"(\d{1,2})\s*[/\-月]\s*(\d{1,2})")
+
+
 def parse_month_day(value):
-    """「9/10」のような「月/日」形式の文字列から (月, 日) を取り出す。"""
+    """「9/10」「9-10」「9月10日」など、月日の数字が読み取れる形式から (月, 日) を取り出す。"""
     text = str(value).strip()
-    for sep in ("/", "-"):
-        if sep in text:
-            month_str, _, day_str = text.partition(sep)
-            try:
-                return int(month_str), int(day_str)
-            except ValueError:
-                break
-    sys.exit(f"「月日」の値が正しくありません: {value!r}。「9/10」のように「月/日」の形式で入力してください。")
+    m = MONTH_DAY_VALUE_RE.search(text)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    sys.exit(
+        f"「月日」の値が正しくありません: {value!r}。"
+        "「9/10」または「9月10日」のように月と日の数字を入力してください。"
+    )
 
 
 def format_datetime(info, month, day):
