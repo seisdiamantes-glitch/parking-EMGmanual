@@ -26,7 +26,7 @@ DEFAULT_TEMPLATE = REPO_ROOT / "meeting_agenda_template.html"
 
 REQUIRED_INFO_KEYS = ["年", "月日", "時間帯", "場所", "議長", "記録係", "出席者"]
 OPTIONAL_INFO_KEYS = ["欠席者", "件名"]
-MONTH_DAY_ALIASES = ["月日", "月/日"]
+MONTH_DAY_ALIASES = ["月日", "月/日", "月ノ日"]
 
 # 議題シートの列名。「説明・論点」「資料/備考」は空欄可。
 AGENDA_REQUIRED_COLUMNS = ["No", "議題", "担当", "想定時間（分）"]
@@ -70,9 +70,16 @@ def read_items_csv(path):
 
 
 def cell_to_str(value):
-    """Excelセルの値を文字列化する。整数値扱いの小数（5.0など）は末尾の.0を除く。"""
+    """Excelセルの値を文字列化する。
+
+    - 整数値扱いの小数（5.0など）は末尾の.0を除く。
+    - 「8/28」のように入力してExcelが自動で日付型に変換したセルは
+      "8/28" 形式のテキストに戻す（parse_month_dayが読める形にする）。
+    """
     if value is None:
         return ""
+    if isinstance(value, (datetime.datetime, datetime.date)):
+        return f"{value.month}/{value.day}"
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return str(value).strip()
@@ -100,10 +107,23 @@ def read_workbook(path):
         info[cell_to_str(key)] = cell_to_str(value)
 
     items_ws = wb["議題"]
-    rows_iter = items_ws.iter_rows(min_row=1, max_row=1, values_only=True)
-    header = [cell_to_str(c) for c in next(rows_iter)]
+    header = None
+    header_row_index = None
+    scan_limit = min(20, items_ws.max_row)
+    for row_num, row in enumerate(
+        items_ws.iter_rows(min_row=1, max_row=scan_limit, values_only=True), start=1
+    ):
+        if row and cell_to_str(row[0]) == "No":
+            header = [cell_to_str(c) for c in row]
+            header_row_index = row_num
+            break
+    if header is None:
+        sys.exit(
+            'シート「議題」で見出し行（A列が「No」の行）が見つかりません。'
+            '見出し行の1列目のセルが厳密に「No」になっているか確認してください。'
+        )
     items = []
-    for row in items_ws.iter_rows(min_row=2, values_only=True):
+    for row in items_ws.iter_rows(min_row=header_row_index + 1, values_only=True):
         if not row or all(v is None for v in row):
             continue
         record = {
