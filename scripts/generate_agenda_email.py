@@ -21,12 +21,15 @@ import re
 import sys
 from pathlib import Path
 
+SCRIPT_VERSION = "2026-08-28"
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TEMPLATE = REPO_ROOT / "meeting_agenda_template.html"
 
 REQUIRED_INFO_KEYS = ["年", "月日", "時間帯", "場所", "議長", "記録係", "出席者"]
 OPTIONAL_INFO_KEYS = ["欠席者", "件名"]
-MONTH_DAY_ALIASES = ["月日", "月/日", "月ノ日"]
+# 「月日」の項目名として区切り文字だけ違う表記（月/日、月ノ日、月・日 など）を許容する。
+MONTH_DAY_SEPARATORS = "/\\-ノ・　 "
 
 # 議題シートの列名。「説明・論点」「資料/備考」は空欄可。
 AGENDA_REQUIRED_COLUMNS = ["No", "議題", "担当", "想定時間（分）"]
@@ -135,13 +138,20 @@ def read_workbook(path):
     return info, items
 
 
+def strip_separators(text):
+    for ch in MONTH_DAY_SEPARATORS:
+        text = text.replace(ch, "")
+    return text
+
+
 def normalize_info_keys(info):
-    """「月/日」のように別名で入力された項目名を正規のキーへ寄せる。"""
-    if "月日" not in info:
-        for alias in MONTH_DAY_ALIASES:
-            if alias in info:
-                info["月日"] = info[alias]
-                break
+    """「月/日」「月ノ日」のように区切り文字だけ違う項目名を「月日」に寄せる。"""
+    if "月日" in info:
+        return info
+    for key in info:
+        if strip_separators(key) == "月日":
+            info["月日"] = info[key]
+            break
     return info
 
 
@@ -236,6 +246,8 @@ def main():
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE, help="元になるHTMLテンプレート")
     parser.add_argument("--output", type=Path, help="出力先HTMLファイル（省略時は output/agenda_YYYY-MM.html）")
     args = parser.parse_args()
+
+    print(f"generate_agenda_email.py version {SCRIPT_VERSION}")
 
     if args.workbook:
         info, items = read_workbook(args.workbook)
