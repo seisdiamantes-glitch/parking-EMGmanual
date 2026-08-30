@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>緊急通達｜トリアージ通報</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f3; --bg3: #eeede8;
+    --text: #1a1a18; --text2: #73726c; --text3: #9c9a92;
+    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.22);
+    --info-bg: #E6F1FB; --info-text: #0C447C; --info-border: #85B7EB;
+
+    --danger-bg: #FCEBEB; --danger-text: #A32D2D; --danger-border: #D64545;
+    --warn-bg: #FFF6D9;   --warn-text: #7A5B00;   --warn-border: #E8B800;
+    --safe-bg: #EAF3DE;   --safe-text: #27500A;   --safe-border: #7FB24B;
+
+    --radius: 8px; --radius-lg: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c; --bg2: #2a2a28; --bg3: #323230;
+      --text: #e8e6de; --text2: #9c9a92; --text3: #73726c;
+      --border: rgba(255,255,255,0.12); --border2: rgba(255,255,255,0.22);
+      --info-bg: #0c2a44; --info-text: #85B7EB; --info-border: #185FA5;
+
+      --danger-bg: #3a1717; --danger-text: #F0A0A0; --danger-border: #C24545;
+      --warn-bg: #3a2f0c;   --warn-text: #F3D26B;   --warn-border: #C29B1E;
+      --safe-bg: #1a2e10;   --safe-text: #97C459;   --safe-border: #5E9139;
+    }
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Hiragino Sans', 'Yu Gothic', sans-serif; font-size: 15px; min-height: 100vh; padding: 16px; }
+  .container { max-width: 560px; margin: 0 auto; }
+  .title-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  h1 { font-size: 18px; font-weight: 700; }
+  .ver-badge { font-size: 11px; font-weight: 700; color: var(--info-text); background: var(--info-bg); border: 0.5px solid var(--info-border); border-radius: 999px; padding: 2px 9px; }
+  .subtitle { font-size: 12px; color: var(--text3); margin-bottom: 20px; line-height: 1.6; }
+
+  .triage-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 22px; }
+  .triage-card { border-radius: var(--radius-lg); overflow: hidden; }
+  .triage-btn { width: 100%; display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: var(--radius-lg); cursor: pointer; text-align: left; background: var(--bg); transition: transform .12s; }
+  .triage-btn:active { transform: scale(0.99); }
+  .triage-icon { font-size: 26px; flex-shrink: 0; width: 34px; text-align: center; }
+  .triage-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .triage-label { font-size: 16px; font-weight: 700; display: block; }
+  .triage-desc { font-size: 12px; line-height: 1.55; display: block; }
+  .triage-chevron { font-size: 13px; flex-shrink: 0; opacity: .6; transition: transform .15s; }
+  .triage-card.open .triage-chevron { transform: rotate(90deg); }
+
+  .triage-red    .triage-btn { border: 2.5px solid var(--danger-border); background: var(--danger-bg); }
+  .triage-red    .triage-label, .triage-red .triage-desc { color: var(--danger-text); }
+  .triage-yellow .triage-btn { border: 2.5px solid var(--warn-border); background: var(--warn-bg); }
+  .triage-yellow .triage-label, .triage-yellow .triage-desc { color: var(--warn-text); }
+  .triage-green  .triage-btn { border: 2.5px solid var(--safe-border); background: var(--safe-bg); }
+  .triage-green  .triage-label, .triage-green .triage-desc { color: var(--safe-text); }
+
+  .triage-panel { display: none; padding: 14px 16px 16px; }
+  .triage-card.open .triage-panel { display: block; }
+
+  .call-banner { display: flex; gap: 8px; margin-bottom: 14px; }
+  .call-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px; border-radius: var(--radius); background: var(--danger-text); color: #fff; font-weight: 700; font-size: 15px; text-decoration: none; }
+
+  .field-label { font-size: 11px; font-weight: 600; color: var(--text2); margin: 10px 0 6px; }
+  .field-label:first-child { margin-top: 0; }
+  .park-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .park-chip { padding: 7px 14px; border-radius: 20px; border: 0.5px solid var(--border2); background: var(--bg); color: var(--text2); font-size: 12.5px; cursor: pointer; }
+  .park-chip.active { background: var(--info-bg); color: var(--info-text); border-color: var(--info-border); font-weight: 600; }
+  .text-input, .text-area { width: 100%; font-size: 13px; padding: 10px 12px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text); outline: none; font-family: inherit; }
+  .text-input:focus, .text-area:focus { border-color: var(--info-border); }
+  .text-area { min-height: 64px; resize: vertical; }
+
+  .send-btn { width: 100%; margin-top: 14px; padding: 12px; border-radius: var(--radius); border: none; font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; }
+  .triage-red    .send-btn { background: var(--danger-text); }
+  .triage-yellow .send-btn { background: var(--warn-text); }
+  .triage-green  .send-btn { background: var(--safe-text); }
+  .send-btn:disabled { opacity: .6; cursor: default; }
+
+  .status-msg { font-size: 12px; margin-top: 8px; display: none; }
+  .status-msg.show { display: block; }
+
+  .source-note { font-size: 11px; color: var(--text3); line-height: 1.7; border-top: 0.5px solid var(--border); padding-top: 14px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="title-row">
+    <h1>緊急通達</h1>
+    <span class="ver-badge">ver1</span>
+  </div>
+  <p class="subtitle">状況に応じて1つ選択し、必要事項を入力して送信してください。<br>送信内容はGoogleスプレッドシートに自動記録されます。</p>
+
+  <div class="triage-list" id="triageList">
+
+    <div class="triage-card triage-red" data-type="urgent">
+      <button class="triage-btn" type="button">
+        <span class="triage-icon">🚨</span>
+        <span class="triage-body">
+          <span class="triage-label">緊急要請</span>
+          <span class="triage-desc">命に関わる状態です。直ちに119番・110番へ通報してください。</span>
+        </span>
+        <span class="triage-chevron">▶</span>
+      </button>
+      <div class="triage-panel">
+        <div class="call-banner">
+          <a class="call-btn" href="tel:119">📞 119番へ発信</a>
+          <a class="call-btn" href="tel:110">📞 110番へ発信</a>
+        </div>
+        <div class="field-label">駐車場を選ぶ</div>
+        <div class="park-row" data-park-row></div>
+        <div class="field-label">お名前（任意）</div>
+        <input class="text-input" type="text" data-name placeholder="例：山田">
+        <div class="field-label">状況（任意・一言で）</div>
+        <textarea class="text-area" data-note placeholder="例：来場者が倒れて意識なし"></textarea>
+        <button class="send-btn" type="button" data-send>報告を送信する</button>
+        <div class="status-msg" data-status></div>
+      </div>
+    </div>
+
+    <div class="triage-card triage-yellow" data-type="support">
+      <button class="triage-btn" type="button">
+        <span class="triage-icon">🛠️</span>
+        <span class="triage-body">
+          <span class="triage-label">支援要請</span>
+          <span class="triage-desc">けがの具合や設備の故障など、会社にどんな支援が必要か具体的に補足欄に記入してください。</span>
+        </span>
+        <span class="triage-chevron">▶</span>
+      </button>
+      <div class="triage-panel">
+        <div class="field-label">駐車場を選ぶ</div>
+        <div class="park-row" data-park-row></div>
+        <div class="field-label">お名前（任意）</div>
+        <input class="text-input" type="text" data-name placeholder="例：山田">
+        <div class="field-label">必要な支援の内容（できるだけ具体的に）</div>
+        <textarea class="text-area" data-note placeholder="例：精算機が故障し復旧作業の応援が必要"></textarea>
+        <button class="send-btn" type="button" data-send>報告を送信する</button>
+        <div class="status-msg" data-status></div>
+      </div>
+    </div>
+
+    <div class="triage-card triage-green" data-type="safe">
+      <button class="triage-btn" type="button">
+        <span class="triage-icon">✅</span>
+        <span class="triage-body">
+          <span class="triage-label">無事です</span>
+          <span class="triage-desc">けがもなく、自助・共助で問題なく対処できている状態です。</span>
+        </span>
+        <span class="triage-chevron">▶</span>
+      </button>
+      <div class="triage-panel">
+        <div class="field-label">駐車場を選ぶ</div>
+        <div class="park-row" data-park-row></div>
+        <div class="field-label">お名前（任意）</div>
+        <input class="text-input" type="text" data-name placeholder="例：山田">
+        <div class="field-label">特記事項（任意）</div>
+        <textarea class="text-area" data-note placeholder="例：全員無事、設備にも異常なし"></textarea>
+        <button class="send-btn" type="button" data-send>報告を送信する</button>
+        <div class="status-msg" data-status></div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="source-note">
+    ※本ページの通報区分（緊急要請・支援要請・無事です）は、兵庫県尼崎市消防局 公式ウェブサイトで案内されているトリアージ（119番通報の要否判断）の考え方を参考に作成しています。<br>
+    出典：兵庫県尼崎市消防局 公式ホームページ
+  </p>
+</div>
+
+<script>
+// =============================================
+// ★ 送信先のGAS WebアプリURLをここに設定
+//   （scripts/emergency_notice_gas/Code.gs をスプレッドシートに
+//    紐づけてデプロイし、発行されたURLを貼り付ける）
+// =============================================
+const GAS_WEB_APP_URL = 'PASTE_YOUR_GAS_WEB_APP_URL_HERE';
+
+// =============================================
+// ★ 物件名はここに追加するだけ
+// =============================================
+const parks = [
+  { id: 'park', name: '駐車場' },
+  { id: 'park2', name: '駐車場2' },
+  { id: 'park3', name: 'パーキング3' },
+];
+
+const typeLabels = { urgent: '緊急要請', support: '支援要請', safe: '無事です' };
+
+document.querySelectorAll('.triage-card').forEach(card => {
+  const type = card.dataset.type;
+  let selectedPark = null;
+
+  // 駐車場チップを描画
+  const parkRow = card.querySelector('[data-park-row]');
+  parks.forEach(p => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'park-chip';
+    chip.textContent = p.name;
+    chip.onclick = () => {
+      selectedPark = p.id;
+      parkRow.querySelectorAll('.park-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    };
+    parkRow.appendChild(chip);
+  });
+
+  // カードの開閉（自分以外は閉じる）
+  card.querySelector('.triage-btn').addEventListener('click', () => {
+    const willOpen = !card.classList.contains('open');
+    document.querySelectorAll('.triage-card').forEach(c => c.classList.remove('open'));
+    if (willOpen) card.classList.add('open');
+  });
+
+  // 送信
+  const sendBtn = card.querySelector('[data-send]');
+  const statusEl = card.querySelector('[data-status]');
+  sendBtn.addEventListener('click', () => {
+    if (!selectedPark) {
+      statusEl.textContent = '駐車場を選択してください';
+      statusEl.className = 'status-msg show';
+      return;
+    }
+    if (GAS_WEB_APP_URL.indexOf('PASTE_YOUR_GAS_WEB_APP_URL_HERE') !== -1) {
+      statusEl.textContent = '送信先未設定です。管理者にご連絡ください（GAS URL未設定）';
+      statusEl.className = 'status-msg show';
+      return;
+    }
+
+    const park = parks.find(p => p.id === selectedPark);
+    const payload = {
+      type: typeLabels[type],
+      park: park ? park.name : '',
+      name: card.querySelector('[data-name]').value.trim(),
+      note: card.querySelector('[data-note]').value.trim(),
+    };
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = '送信中...';
+
+    fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload),
+    }).then(() => {
+      statusEl.textContent = '送信しました';
+      statusEl.className = 'status-msg show';
+      sendBtn.textContent = '報告を送信する';
+      sendBtn.disabled = false;
+    }).catch(() => {
+      statusEl.textContent = '送信に失敗しました。通信状況を確認して再度お試しください';
+      statusEl.className = 'status-msg show';
+      sendBtn.textContent = '報告を送信する';
+      sendBtn.disabled = false;
+    });
+  });
+});
+</script>
+</body>
+</html>
