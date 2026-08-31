@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>緊急対応の窓</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f3; --bg3: #eeede8;
+    --text: #1a1a18; --text2: #73726c; --text3: #9c9a92;
+    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.22);
+    --radius: 8px; --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c; --bg2: #2a2a28; --bg3: #323230;
+      --text: #e8e6de; --text2: #9c9a92; --text3: #73726c;
+      --border: rgba(255,255,255,0.12); --border2: rgba(255,255,255,0.22);
+    }
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Hiragino Sans', 'Yu Gothic', sans-serif; font-size: 15px; min-height: 100vh; padding: 16px; }
+  .container { max-width: 600px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { font-size: 12px; color: var(--text3); margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 24px; }
+  .card { display: flex; align-items: center; gap: 14px; padding: 18px 16px; border-radius: var(--radius-lg); border: 1.5px solid transparent; text-decoration: none; transition: transform .1s, filter .15s; cursor: pointer; }
+  .card:active { transform: scale(0.99); }
+  .card:hover { filter: brightness(1.04); }
+  .card-icon { font-size: 26px; flex-shrink: 0; width: 40px; text-align: center; }
+  .card-body { flex: 1; min-width: 0; }
+  .card-name { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+  .card-sub { font-size: 11px; opacity: 0.85; line-height: 1.4; }
+  .card-arrow { font-size: 16px; opacity: 0.6; flex-shrink: 0; }
+
+  .card.c-red    { background: #E5322D; color: #fff; }
+  .card.c-salmon { background: #EE6C64; color: #fff; }
+  .card.c-green  { background: #1E9E56; color: #fff; }
+  .card.c-purple { background: #5B2A9E; color: #fff; }
+
+  .card.disabled { background: var(--bg2); color: var(--text3); cursor: default; pointer-events: none; border-color: var(--border); }
+  .card.disabled .card-arrow { display: none; }
+  .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: rgba(0,0,0,0.15); flex-shrink: 0; }
+  .card.disabled .badge { background: var(--bg3); color: var(--text3); }
+
+  .how-box { background: var(--bg2); border-radius: var(--radius-lg); padding: 14px 16px; }
+  .how-title { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 10px; }
+  .how-row { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 7px; font-size: 12px; color: var(--text2); line-height: 1.6; }
+  .how-num { width: 20px; height: 20px; border-radius: 50%; background: var(--bg3); color: var(--text2); font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🚨 緊急対応の窓</h1>
+  <p class="subtitle">緊急時はここから各サイトへ。確認が終わったらこの画面に戻ってください。</p>
+
+  <div class="grid">
+    <a class="card c-salmon" href="https://seisdiamantes-glitch.github.io/parking-EMGmanual/20260825_emergency-02.html" target="_blank" rel="noopener">
+      <div class="card-icon">🆘</div>
+      <div class="card-body">
+        <div class="card-name">安否確認サイト</div>
+        <div class="card-sub">20260825_emergency-02.html（最新版・第2号）</div>
+      </div>
+      <div class="card-arrow">↗</div>
+    </a>
+
+    <a class="card c-red" href="https://seisdiamantes-glitch.github.io/parking-EMGmanual/emergency_notice.html" target="_blank" rel="noopener">
+      <div class="card-icon">📣</div>
+      <div class="card-body">
+        <div class="card-name">緊急要請サイト</div>
+        <div class="card-sub">emergency_notice.html — 緊急要請フォーム</div>
+      </div>
+      <div class="card-arrow">↗</div>
+    </a>
+
+    <a class="card c-green" href="https://app.notion.com/p/JTM-194aab0e2c4380f8b7e1d7f3eceac86a?source=copy_link" target="_blank" rel="noopener">
+      <div class="card-icon">📘</div>
+      <div class="card-body">
+        <div class="card-name">緊急時オープンマニュアル</div>
+        <div class="card-sub">Notion 限定公開サイト</div>
+      </div>
+      <div class="card-arrow">↗</div>
+    </a>
+
+    <a class="card disabled" aria-disabled="true">
+      <div class="card-icon">📷</div>
+      <div class="card-body">
+        <div class="card-name">緊急時の写真・動画の共有サイト</div>
+        <div class="card-sub">共有方法を検討中</div>
+      </div>
+      <div class="badge">検討中</div>
+    </a>
+  </div>
+
+  <div class="how-box">
+    <div class="how-title">使い方</div>
+    <div class="how-row"><div class="how-num">1</div>使いたいボタンをタップすると、別タブでサイトが開く</div>
+    <div class="how-row"><div class="how-num">2</div>確認・入力が終わったらそのタブを閉じる</div>
+    <div class="how-row"><div class="how-num">3</div>この画面（緊急対応の窓）に戻り、必要であれば次の項目へ</div>
+  </div>
+</div>
+</body>
+</html>
